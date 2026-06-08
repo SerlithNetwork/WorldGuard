@@ -803,6 +803,23 @@ public class WorldGuardEntityListener extends AbstractListener {
         }
     }
 
+    @EventHandler(ignoreCancelled = true)
+    public void onSaturationChange(org.bukkit.event.entity.EntityExhaustionEvent event) {
+        HumanEntity ent = event.getEntity();
+        if (Entities.isNPC(ent)) return;
+        if (!(ent instanceof Player bukkitPlayer)) return;
+        if (event.getExhaustion() > ent.getExhaustion()) return;
+
+        LocalPlayer player = WorldGuardPlugin.inst().wrapPlayer(bukkitPlayer);
+        WorldConfiguration wcfg = getWorldConfig(ent.getWorld());
+
+        if (wcfg.useRegions
+                && !WorldGuard.getInstance().getPlatform().getRegionContainer().createQuery().testState(
+                player.getLocation(), player, Flags.SATURATION_DRAIN)) {
+            event.setCancelled(true);
+        }
+    }
+
     /**
      * Called when an entity changes a block somehow
      *

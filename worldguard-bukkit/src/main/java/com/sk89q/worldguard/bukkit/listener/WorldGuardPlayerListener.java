@@ -137,7 +137,7 @@ public class WorldGuardPlayerListener extends AbstractListener {
     }
 
     @EventHandler(ignoreCancelled = true)
-    public void onPlayerChat(AsyncPlayerChatEvent event) {
+    public void onPlayerChat(io.papermc.paper.event.player.AsyncChatEvent event) {
         Player player = event.getPlayer();
         LocalPlayer localPlayer = getPlugin().wrapPlayer(player);
         WorldConfiguration wcfg = getWorldConfig(player.getWorld());
@@ -153,30 +153,38 @@ public class WorldGuardPlayerListener extends AbstractListener {
             }
 
             boolean anyRemoved = false;
-            for (Iterator<Player> i = event.getRecipients().iterator(); i.hasNext();) {
-                Player rPlayer = i.next();
+            for (Iterator<net.kyori.adventure.audience.Audience> i = event.viewers().iterator(); i.hasNext();) {
+                net.kyori.adventure.audience.Audience audience = i.next();
+                if (!(audience instanceof Player rPlayer)) {
+                    continue;
+                }
                 LocalPlayer rLocal = getPlugin().wrapPlayer(rPlayer);
                 if (!query.testState(rLocal.getLocation(), rLocal, Flags.RECEIVE_CHAT)) {
                     i.remove();
                     anyRemoved = true;
                 }
             }
-            if (anyRemoved && event.getRecipients().isEmpty() && wcfg.regionCancelEmptyChatEvents) {
+            if (anyRemoved && event.viewers().isEmpty() && wcfg.regionCancelEmptyChatEvents) {
                 event.setCancelled(true);
             }
         }
     }
 
     @EventHandler(ignoreCancelled = true)
-    public void onPlayerLogin(PlayerLoginEvent event) {
-        Player player = event.getPlayer();
+    public void onPlayerLogin(org.bukkit.event.player.AsyncPlayerPreLoginEvent event) {
+        com.destroystokyo.paper.profile.PlayerProfile player = event.getPlayerProfile();
         ConfigurationManager cfg = getConfig();
 
-        String hostKey = cfg.hostKeys.get(player.getUniqueId().toString());
-        if (hostKey == null) {
-            hostKey = cfg.hostKeys.get(player.getName().toLowerCase());
+        java.util.UUID uuid = player.getId();
+        if (uuid == null) {
+            return;
+        }
+        String name = player.getName();
+        if (name == null) {
+            return;
         }
 
+        String hostKey = cfg.hostKeys.get(uuid.toString());
         if (hostKey != null) {
             String hostname = event.getHostname();
             int colonIndex = hostname.indexOf(':');
@@ -187,17 +195,13 @@ public class WorldGuardPlayerListener extends AbstractListener {
             if (!hostname.equals(hostKey)
                     && !(cfg.hostKeysAllowFMLClients &&
                             (hostname.equals(hostKey + "\u0000FML\u0000") || hostname.equals(hostKey + "\u0000FML2\u0000")))) {
-                event.disallow(PlayerLoginEvent.Result.KICK_OTHER,
-                        "You did not join with the valid host key!");
+                event.disallow(org.bukkit.event.player.AsyncPlayerPreLoginEvent.Result.KICK_OTHER,
+                        net.kyori.adventure.text.Component.text("You did not join with the valid host key!"));
                 log.warning("WorldGuard host key check: " +
                         player.getName() + " joined with '" + hostname +
                         "' but '" + hostKey + "' was expected. Kicked!");
                 return;
             }
-        }
-
-        if (cfg.deopOnJoin) {
-            player.setOp(false);
         }
     }
 
@@ -385,7 +389,7 @@ public class WorldGuardPlayerListener extends AbstractListener {
                         return;
                     }
                 }
-            } else if (event.getCause() == TeleportCause.CHORUS_FRUIT) {
+            } else if (event.getCause() == TeleportCause.CONSUMABLE_EFFECT) {
                 if (!WorldGuard.getInstance().getPlatform().getSessionManager().hasBypass(localPlayer, localPlayer.getWorld())) {
                     boolean cancel = false;
                     String message = null;

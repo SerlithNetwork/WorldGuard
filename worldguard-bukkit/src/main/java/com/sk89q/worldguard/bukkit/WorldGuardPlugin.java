@@ -113,6 +113,7 @@ public class WorldGuardPlugin extends JavaPlugin {
     private static BukkitWorldGuardPlatform platform;
     private final CommandsManager<Actor> commands;
     private PlayerMoveListener playerMoveListener;
+    private java.util.concurrent.ScheduledExecutorService playerMovementTracker;
 
     private static final int BSTATS_PLUGIN_ID = 3283;
 
@@ -170,6 +171,12 @@ public class WorldGuardPlugin extends JavaPlugin {
             reg.register(GeneralCommands.class);
         }
 
+        this.playerMovementTracker = new java.util.concurrent.ScheduledThreadPoolExecutor(1,
+                new com.google.common.util.concurrent.ThreadFactoryBuilder()
+                        .setNameFormat("WorldGuard Player Movement Tracker Thread - %d")
+                        .setPriority(Thread.MIN_PRIORITY)
+                        .build()
+        );
         if (this.isFolia()) {
             getServer().getGlobalRegionScheduler().runAtFixedRate(this, new Consumer() {
                 @Override
@@ -203,6 +210,7 @@ public class WorldGuardPlugin extends JavaPlugin {
         (new PlayerModesListener(this)).registerEvents();
         (new BuildPermissionListener(this)).registerEvents();
         (new InvincibilityListener(this)).registerEvents();
+        this.playerMovementTracker.scheduleAtFixedRate(playerMoveListener, 0L, 100L, java.util.concurrent.TimeUnit.MILLISECONDS);
         if ("true".equalsIgnoreCase(System.getProperty("worldguard.debug.listener"))) {
             (new DebuggingListener(this, WorldGuard.logger)).registerEvents();
         }
@@ -561,6 +569,9 @@ public class WorldGuardPlugin extends JavaPlugin {
         try {
             // Folia is Paper-based, so this is a good first check.
             if (PaperLib.isPaper()) {
+                if (com.sk89q.worldguard.bukkit.util.PwtInterop.supportsParallelWorldTicking(this)) {
+                    return true;
+                }
                 return ServerBuildInfo.buildInfo().isBrandCompatible(net.kyori.adventure.key.Key.key("papermc", "folia"));
             }
         } catch (Throwable t) {

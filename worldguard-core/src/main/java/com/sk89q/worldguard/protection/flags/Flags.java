@@ -159,6 +159,7 @@ public final class Flags {
     public static final StateFlag FALL_DAMAGE = register(new StateFlag("fall-damage", true));
     public static final StateFlag HEALTH_REGEN = register(new StateFlag("natural-health-regen", true));
     public static final StateFlag HUNGER_DRAIN = register(new StateFlag("natural-hunger-drain", true));
+    public static final StateFlag SATURATION_DRAIN = register(new StateFlag("natural-saturation-drain", true));
 
     // session and movement based flags
     public static final StateFlag ENTRY = register(new StateFlag("entry", true, RegionGroup.NON_MEMBERS));

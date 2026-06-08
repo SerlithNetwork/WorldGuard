@@ -45,7 +45,8 @@ import org.bukkit.util.Vector;
 
 import java.util.function.Consumer;
 
-public class PlayerMoveListener extends AbstractListener {
+public class PlayerMoveListener extends AbstractListener implements Runnable {
+    private final java.util.Map<java.util.UUID, Location> locations = new java.util.HashMap<>();
 
     public PlayerMoveListener(WorldGuardPlugin plugin) {
         super(plugin);
@@ -79,27 +80,28 @@ public class PlayerMoveListener extends AbstractListener {
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGH)
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    public void onPlayerMove(PlayerMoveEvent event) {
-        Location from = event.getFrom();
-        Location to = event.getTo();
+    @Override
+    public void run() {
+        final java.util.List<Runnable> tasks = new java.util.ArrayList<>();
+
+        for (final Player player : Bukkit.getOnlinePlayers()) {
+        Location from = this.locations.getOrDefault(player.getUniqueId(), player.getLocation());
+        Location to = player.getLocation().clone();
         if (from.getBlockX() == to.getBlockX()
                 && from.getBlockY() == to.getBlockY()
                 && from.getBlockZ() == to.getBlockZ()) {
-            return;
+            this.locations.put(player.getUniqueId(), to);
+            continue;
         }
 
-        final Player player = event.getPlayer();
         LocalPlayer localPlayer = getPlugin().wrapPlayer(player);
-
         Session session = WorldGuard.getInstance().getPlatform().getSessionManager().get(localPlayer);
         MoveType moveType = MoveType.MOVE;
-        if (event.getPlayer().isGliding()) {
+        if (player.isGliding()) {
             moveType = MoveType.GLIDE;
-        } else if (event.getPlayer().isSwimming()) {
+        } else if (player.isSwimming()) {
             moveType = MoveType.SWIM;
-        } else if (event.getPlayer().getVehicle() != null && event.getPlayer().getVehicle() instanceof AbstractHorse) {
+        } else if (player.getVehicle() != null && player.getVehicle() instanceof AbstractHorse) {
             moveType = MoveType.RIDE;
         }
         com.sk89q.worldedit.util.Location weLocation = session.testMoveTo(localPlayer, BukkitAdapter.adapt(to), moveType);
@@ -112,7 +114,7 @@ public class PlayerMoveListener extends AbstractListener {
             override.setPitch(to.getPitch());
             override.setYaw(to.getYaw());
 
-            event.setTo(override.clone());
+            player.teleportAsync(override.clone());
 
             Entity vehicle = player.getVehicle();
             if (vehicle != null) {
@@ -149,6 +151,8 @@ public class PlayerMoveListener extends AbstractListener {
                     Bukkit.getScheduler().runTaskLater(getPlugin(), task, 1);
                 }
             }
+            }
+            this.locations.put(player.getUniqueId(), to);
         }
     }
 
